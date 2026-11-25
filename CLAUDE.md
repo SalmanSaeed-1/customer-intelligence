@@ -56,7 +56,7 @@
 - [x] Git repo created and pushed to GitHub (25 Nov 2026), see Section 1
 - [x] Python environment: `.venv` (Python 3.14, pandas 3.1, scikit-learn 1.9, xgboost 3.4) (21 Nov 2026)
 - [x] `src/cleaning.py` + notebook 01 (25 Nov 2026): 776,577 clean rows, 5,852 customers; step table in `reports/results/cleaning_steps.csv`; 5 EDA figures `reports/figures/eda_*.png/.pdf`. See "Findings from notebook 01" in Section 7.
-- [ ] `src/features.py` + notebook 02
+- [x] `src/features.py` + notebook 02 (25 Nov 2026): train 4,908 customers (churn 67.1%), test 5,224 (churn 57.2%); 13 features + 2 targets; leakage checks pass. See "Findings from notebook 02" in Section 8.
 - [ ] Notebook 03 segmentation
 - [ ] Notebook 04 churn
 - [ ] Notebook 05 CLV
@@ -136,7 +136,7 @@ D:\customer-intelligence\
 │   ├── __init__.py
 │   ├── config.py              # DONE: paths, dates, seed, colours
 │   ├── cleaning.py            # DONE: load_raw(), clean_transactions(), get_cancellations()
-│   ├── features.py            # TODO: build_rfm(), build_extra_features(), build_targets(), build_customer_table()
+│   ├── features.py            # DONE: history_before(), label_window(), build_rfm(), build_extra_features(), build_targets(), build_customer_table()
 │   └── evaluation.py          # STARTED: set_plot_style(), save_fig(), save_table(); metric tables/plots TODO
 ├── notebooks/
 │   ├── 01_data_cleaning_eda.ipynb
@@ -261,6 +261,22 @@ build_targets(tx, cutoff, days=config.HOLDOUT_DAYS) -> DataFrame[customer_id, ch
 build_customer_table(tx, cutoff) -> one row per customer, features + targets
 ```
 Sanity checks to print: number of customers per table, churn rate per table, `max(invoice_date)` used for features must be `< cutoff` (assert it).
+
+### Findings from notebook 02 (25 Nov 2026)
+- Implementation choices: the two time filters are `history_before(tx, cutoff)` and `label_window(tx, cutoff, days)`; every feature/target goes through them. `mean_interpurchase_days = (last - first) / (frequency - 1)` (equal to the mean gap), filled with `tenure_days` for one-order customers. `is_uk` uses the country of the latest order. `cancel_rate` is included (from `config.CANCEL_FILE`, only cancellations before the cutoff). `build_customer_table(tx, cutoff, cancellations=None)` adds it when cancellations are passed.
+- Columns (16): `customer_id`, `recency_days, frequency, monetary, tenure_days, avg_order_value, n_unique_products, avg_basket_size, mean_interpurchase_days, is_single_order, revenue_last_90d, frequency_last_90d, is_uk, cancel_rate`, targets `churned, next_period_spend`. No NaNs.
+- Leakage checks (all pass): newest feature date < cutoff; features identical when every row on/after the cutoff is deleted; labels only inside each 90-day window.
+- | | train | test |
+  |---|---|---|
+  | customers | 4,908 | 5,224 |
+  | churn rate | 67.1% | 57.2% |
+  | mean next spend | £338 | £515 |
+  | mean spend of buyers | £1,026 | £1,203 |
+  | recency > 365 days | 11.9% | 17.2% |
+- **Seasonal shift confirmed:** fewer churners and higher spend in the test table. ROC/PR-AUC are fine, but a threshold tuned on train will over-predict churn on test, and the spend model will likely under-predict.
+- Churn by recency (train / test): 0–90 d 44% / 32%, 91–180 d 69% / 56%, 181–365 d 85% / 70%, >365 d 94% / 90%. Baselines: majority class accuracy 0.671 / 0.572, rule `recency_days > 90` accuracy 0.721 / 0.704.
+- Customer 12346 (the cancelled £77k order, Section 7 open decision) has `monetary` £77,353 and `avg_basket_size` 24,746 in train.
+- Saved: `customer_table_train/test.parquet`, `reports/results/customer_tables_summary.csv`, figure `features_churn_by_recency.png/.pdf`.
 
 ---
 
