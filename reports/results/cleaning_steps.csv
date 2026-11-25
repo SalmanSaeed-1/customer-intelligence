@@ -1,0 +1,7 @@
+step,rows_left,rows_removed,pct_of_raw_left
+Raw data (both sheets),1067371,0,100.0
+Drop exact duplicate rows,1033036,34335,96.8
+Drop cancellations (invoice starts with C),1013932,19104,95.0
+Drop rows with missing customer_id,779495,234437,73.0
+Drop quantity <= 0 or price <= 0,779425,70,73.0
+Drop non-product stock codes,776577,2848,72.8
