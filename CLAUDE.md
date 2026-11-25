@@ -363,6 +363,7 @@ Salman also owns `src/` maintenance and `evaluation.py`.
 - Save every metric table as CSV in `config.RESULTS_DIR`.
 - Keep code simple and well commented. **We are students and must be able to explain every line in the viva.** Prefer clear code over clever code, and explain new concepts briefly when introducing them.
 - Before adding a new library, ask (keep `requirements.txt` small).
+- **Git commits:** never add a `Co-Authored-By: Claude …` line (or any Claude/AI attribution) to commit messages or PR descriptions. Commits are authored by the group members only.
 - After finishing a step, update the status checklist in Section 3.
 
 ---
