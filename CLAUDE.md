@@ -16,6 +16,7 @@
 | Group member 2 | Muhammad Hassam (2025537) |
 | Time available | **5 weeks** (project started mid-November 2026), alongside other courses |
 | Project location on PC | `D:\customer-intelligence\` (Windows) |
+| GitHub repo | https://github.com/SalmanSaeed-1/customer-intelligence (public, branch `main`; dataset and processed data are not committed) |
 | Language / tools | Python 3, pandas, numpy, scikit-learn, xgboost, matplotlib, seaborn, Jupyter |
 | Deadline | _fill in: ____________ |
 
@@ -52,6 +53,7 @@
 - [x] 6 notebook skeletons created, each with a step checklist and setup cell
 - [~] Intro figures for the paper: Figure 1 (system overview diagram) drafted; Figures 2 and 3 planned (see Section 13)
 - [x] Download dataset into `data/raw/` (19 Nov 2026; checked: 2 sheets, 8 columns, 525,461 + 541,910 = 1,067,371 rows)
+- [x] Git repo created and pushed to GitHub (25 Nov 2026), see Section 1
 - [x] Python environment: `.venv` (Python 3.14, pandas 3.1, scikit-learn 1.9, xgboost 3.4) (21 Nov 2026)
 - [x] `src/cleaning.py` + notebook 01 (25 Nov 2026): 776,577 clean rows, 5,852 customers; step table in `reports/results/cleaning_steps.csv`; 5 EDA figures `reports/figures/eda_*.png/.pdf`. See "Findings from notebook 01" in Section 7.
 - [ ] `src/features.py` + notebook 02
