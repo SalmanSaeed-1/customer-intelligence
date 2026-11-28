@@ -57,7 +57,7 @@
 - [x] Python environment: `.venv` (Python 3.14, pandas 3.1, scikit-learn 1.9, xgboost 3.4) (21 Nov 2026)
 - [x] `src/cleaning.py` + notebook 01 (25 Nov 2026): 776,577 clean rows, 5,852 customers; step table in `reports/results/cleaning_steps.csv`; 5 EDA figures `reports/figures/eda_*.png/.pdf`. See "Findings from notebook 01" in Section 7.
 - [x] `src/features.py` + notebook 02 (25 Nov 2026): train 4,908 customers (churn 67.1%), test 5,224 (churn 57.2%); 13 features + 2 targets; leakage checks pass. See "Findings from notebook 02" in Section 8.
-- [ ] Notebook 03 segmentation
+- [x] `src/segmentation.py` + notebook 03 (28 Nov 2026): K-means k=4 on log1p + scaled RFM (fit on train); segments Champions / Promising / At-risk / Lost / One-time; `segment` column added to both tables; model in `models/segmentation_kmeans.joblib`. See "Findings from notebook 03" in Section 9.
 - [ ] Notebook 04 churn
 - [ ] Notebook 05 CLV
 - [ ] (optional) Notebook 06 recommender
@@ -137,6 +137,7 @@ D:\customer-intelligence\
 │   ├── config.py              # DONE: paths, dates, seed, colours
 │   ├── cleaning.py            # DONE: load_raw(), clean_transactions(), get_cancellations()
 │   ├── features.py            # DONE: history_before(), label_window(), build_rfm(), build_extra_features(), build_targets(), build_customer_table()
+│   ├── segmentation.py        # DONE: make_preprocessor(), make_kmeans_pipeline(), compare_k(), gmm_bic(), profile_segments(), name_clusters(), add_segment()
 │   └── evaluation.py          # STARTED: set_plot_style(), save_fig(), save_table(); metric tables/plots TODO
 ├── notebooks/
 │   ├── 01_data_cleaning_eda.ipynb
@@ -145,7 +146,7 @@ D:\customer-intelligence\
 │   ├── 04_churn_prediction.ipynb
 │   ├── 05_clv_prediction.ipynb
 │   └── 06_recommender_optional.ipynb
-├── models/                    # saved fitted models (.pkl / joblib)
+├── models/                    # saved fitted models (.pkl / joblib); segmentation_kmeans.joblib from 03 (gitignored)
 └── reports/
     ├── figures/               # all plots, PNG 300 dpi
     ├── results/               # metric tables as CSV
@@ -171,6 +172,7 @@ CLEAN_FILE = DATA_PROCESSED / "transactions_clean.parquet"
 CANCEL_FILE = DATA_PROCESSED / "cancellations.parquet"
 TRAIN_TABLE = DATA_PROCESSED / "customer_table_train.parquet"
 TEST_TABLE = DATA_PROCESSED / "customer_table_test.parquet"
+SEGMENT_MODEL = MODELS_DIR / "segmentation_kmeans.joblib"   # {"model": Pipeline, "names": {cluster: name}}
 
 DATA_START = pd.Timestamp("2009-12-01")
 DATA_END = pd.Timestamp("2011-12-09")
@@ -181,6 +183,8 @@ TEST_CUTOFF = pd.Timestamp("2011-09-01")
 RANDOM_STATE = 42
 COLORS = {"segmentation": "#2a78d6", "churn": "#eb6834", "clv": "#1baf7a",
           "neutral": "#8c8c8c", "ink": "#1f1f1f"}
+SEGMENT_COLORS = {"Champions": "#2a78d6", "Promising": "#eda100",     # display order = dict order
+                  "At-risk": "#e34948", "Lost / One-time": "#8c8c8c"}
 # (also creates the output folders if missing)
 ```
 
@@ -291,6 +295,39 @@ Sanity checks to print: number of customers per table, churn rate per table, `ma
 - Profile table: mean R, F, M and size per cluster. Give the clusters business names, e.g. *Champions, Loyal, At-risk, Lost / One-time*.
 - Fit on train, `predict` on test; add `segment` to both tables and save.
 - Metrics: silhouette, Davies–Bouldin, plus interpretability.
+
+### Findings from notebook 03 (28 Nov 2026)
+- **Final model:** one sklearn `Pipeline` (`FunctionTransformer(log1p)` → `StandardScaler` → `KMeans(k=4, n_init=10)`), fit on train, `predict` on test. Saved with the names as `config.SEGMENT_MODEL`.
+- **Choice of k (train, scaled log RFM):** k=2 has the best silhouette (0.456), but it only splits active from inactive customers. For k ≥ 3, **k=4 is best on both scores** (silhouette 0.378, DB 0.918), and the elbow is at about 4. Refitting with 5 different seeds gives ARI 0.99+ (stable).
+- **Naming is rule-based** (`name_clusters`), because K-means cluster numbers are arbitrary: highest median monetary → Champions; highest median recency → Lost / One-time; of the other two, the more recent → Promising, the other → At-risk.
+- **Segments (train):**
+
+  | Segment | Share of customers | Median R / F / M | Share of revenue | Churn (train / test) |
+  |---|---|---|---|---|
+  | Champions | 16% | 19 d / 13 / £4,955 | 65% | 21% / 16% |
+  | Promising | 15% | 22 d / 3 / £722 | 5% | 56% / 45% |
+  | At-risk | 29% | 174 d / 4 / £1,386 | 24% | 67% / 54% |
+  | Lost / One-time | 41% | 238 d / 1 / £289 | 6% | 89% / 80% |
+- **Method comparison (k=4):**
+
+  | Method | Silhouette | Davies–Bouldin | ARI vs K-means |
+  |---|---|---|---|
+  | K-means | 0.378 | 0.918 | 1.00 |
+  | Ward | 0.333 | 0.953 | 0.68 |
+  | GMM | 0.245 | 1.200 | 0.42 |
+
+  Ward has no `predict` for new customers. Ward splits up the Promising segment the most.
+- **GMM BIC has no clear minimum** (it falls in steps and is lowest at 10). The reason: 31% of customers have frequency = 1, which is a single identical value after log + scale, so a component collapses onto it (variance = `reg_covar` 1e-6) and the likelihood blows up. The same happens for frequency = 2, and so on. Good viva point.
+- **PCA:** PC1 (75%) = overall value (−R, +F, +M), PC2 (19%) ≈ recency; 2D keeps 95% of the variance. t-SNE (perplexity 30) is a picture only. It splits Lost and At-risk into islands, which is a t-SNE artefact.
+- **Over time:**
+  - Test segment shares are similar (16/12/31/41%), with the same churn order, and every segment churns less (seasonal shift).
+  - A test-only K-means refit (diagnostic, not kept) agrees with the train model's predict at ARI 0.92.
+  - All 4,908 train customers are in the test table. Champions stay Champions 82% of the time; only 22% of Promising customers stay Promising (46% → At-risk, 26% → Lost); 12% of At-risk customers become Champions.
+- `segment` is stored as a **string** column (the business name) in both parquet tables, which now have 17 columns. Notebooks 04 and 05 should one-hot encode it (fit the encoder on train). Notebook 03 drops an existing `segment` column on load, so it can be re-run safely.
+- Outputs:
+  - Tables: `segmentation_k_selection`, `segment_profiles_train`, `segmentation_method_comparison`, `segments_train_vs_test`, `segment_transitions` (CSV).
+  - Figures: `seg_choose_k`, `seg_dendrogram`, `seg_gmm_bic`, `seg_pca_tsne`, `seg_profiles`, `seg_churn_by_segment`.
+- `scipy` (linkage/dendrogram) and `joblib` are used, but both come with scikit-learn, so `requirements.txt` is unchanged.
 
 ## 10. Module 2: Churn prediction (notebook 04)
 

@@ -23,6 +23,8 @@ CLEAN_FILE = DATA_PROCESSED / "transactions_clean.parquet"
 CANCEL_FILE = DATA_PROCESSED / "cancellations.parquet"
 TRAIN_TABLE = DATA_PROCESSED / "customer_table_train.parquet"
 TEST_TABLE = DATA_PROCESSED / "customer_table_test.parquet"
+# Fitted K-means pipeline + segment names from notebook 03.
+SEGMENT_MODEL = MODELS_DIR / "segmentation_kmeans.joblib"
 
 # ---- dates (time-based split) -------------------------------------------
 DATA_START = pd.Timestamp("2009-12-01")
@@ -46,6 +48,17 @@ COLORS = {
     "clv": "#1baf7a",           # green
     "neutral": "#8c8c8c",       # grey: data/EDA plots that belong to no module
     "ink": "#1f1f1f",           # dark text colour (text is never in a series colour)
+}
+
+# ---- segment colours (Module 1, notebook 03) ------------------------------
+# One colour per customer segment, in display order (best -> lost). Champions get the
+# segmentation blue; "Lost" is grey because it is the large background group.
+# Checked with a colour-blindness validator: every pair stays distinguishable.
+SEGMENT_COLORS = {
+    "Champions": "#2a78d6",        # blue
+    "Promising": "#eda100",        # yellow
+    "At-risk": "#e34948",          # red
+    "Lost / One-time": "#8c8c8c",  # grey
 }
 
 # Make sure output folders exist.

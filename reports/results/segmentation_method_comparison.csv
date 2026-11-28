@@ -1,0 +1,4 @@
+method,clusters,silhouette,davies_bouldin,ARI_vs_kmeans,assigns_new_customers
+K-means,4,0.3781424135456333,0.9183154798723038,1.0,yes (predict)
+Hierarchical (Ward),4,0.3326654029806243,0.9529636694675584,0.6755342661638539,no
+Gaussian mixture,4,0.2451869546011809,1.1996756948685436,0.42221771368255473,yes (predict)
